@@ -1,58 +1,81 @@
+
+
+POSIXLY_CORRECT=yes
+
 after_date="0"
 before_date="999999"
 username=""
 log_files=()
+currency_codes=()
 
+# Flag to indicate whether the next argument should be treated as a currency code
+add_currency=false
+
+# Collect log files and currency codes from command line arguments
 for arg in "$@"; do
-    # Check if the argument ends with ".log"
     if [[ "$arg" == *.log ]]; then
-        # Add the argument to the log_files array
+        # Add log file to the array
         log_files+=("$arg")
+    elif [[ "$arg" == "-c" ]]; then
+        # Set the flag to true to indicate that the next argument should be treated as a currency code
+        add_currency=true
+    elif [[ "$add_currency" == true ]]; then
+        # Add the currency code to the array
+        currency_codes+=("$arg")
+        # Reset the flag for the next iteration
+        add_currency=false
     fi
 done
 
-# Print the names of the log files
-for file in "${log_files[@]}"; do
-    echo "$file"
-done
-
+# Iterate over each log file
 for log_file in "${log_files[@]}"; do
-    while [ "$#" -gt 0 ]; do
-        case "$1" in
+    # Process command line arguments for this log file
+    for arg in "$@"; do
+        case "$arg" in
             "-a")
                 after_date=$2
-                shift
+                shift 2
                 ;;
             "-b")
                 before_date=$2
-                shift
+                shift 2
                 ;;
             "-c")
-                currency_code=$2
-                shift
+                # Skip -c and its argument
+                shift 2
                 ;;
             "list")
                 shift
                 username=$1
-                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user' "$log_file"
+                # Iterate over each currency code and apply the filter
+                for code in "${currency_codes[@]}"; do
+                    awk -F';' -v code="$code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user' "$log_file"
+                done
                 ;;
             "list-currency")
                 shift
                 username=$1
-                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && !seen[$3]++ && $1 == user {print $3}' "$log_file" | sort
+                # Iterate over each currency code and apply the filter
+                for code in "${currency_codes[@]}"; do
+                    awk -F';' -v code="$code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && !seen[$3]++ && $1 == user {print $3}' "$log_file" | sort
+                done
                 ;;
             "status")
                 shift
                 username=$1
-                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, currency[c] }' "$log_file" | sort
+                # Iterate over each currency code and apply the filter
+                for code in "${currency_codes[@]}"; do
+                    awk -F';' -v code="$code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, currency[c] }' "$log_file" | sort
+                done
                 ;;
             "profit")
                 shift
                 username=$1
-                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, (currency[c] > 0) ? currency[c] * 1.2 : currency[c] }' "$log_file" | sort
+                # Iterate over each currency code and apply the filter
+                for code in "${currency_codes[@]}"; do
+                    awk -F';' -v code="$code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, (currency[c] > 0) ? currency[c] * 1.2 : currency[c] }' "$log_file" | sort
+                done
                 ;;
         esac
-        shift
     done
-    shift
 done

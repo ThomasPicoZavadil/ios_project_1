@@ -1,0 +1,75 @@
+POSIXLY_CORRECT=yes
+
+after_date="0"
+before_date="999999"
+username=""
+log_files=()
+
+for arg in "$@"; do
+    # Check if the argument ends with ".log"
+    if [[ "$arg" == *.log || "$arg" == *.gz ]]; then
+        # Add the argument to the log_files array
+        log_files+=("$arg")
+    elif [[ "$arg" == -h || "$arg" == --help ]]; then
+        echo ""
+        echo "Usage: $0 [-h|--help] [FILTR] [PŘÍKAZ] UŽIVATEL LOG [LOG2 [...]]"
+        echo "Options:"
+        echo "  -h, --help       Display this help message"
+        echo "  FILTR            Options: -a DATETIME, -b DATETIME, -c CURRENCY"
+        echo "  PŘÍKAZ           Command: list, list-currency, status, profit"
+        echo "  UŽIVATEL         User identifier"
+        echo "  LOG              List of .log files"
+        echo ""
+        exit 0
+    fi
+done
+
+# Iterate over each log file
+for log_file in "${log_files[@]}"; do
+    if [[ "$log_file" == *.gz ]]; then
+        gunzip -c "$log_file"
+    fi
+    # Extract the command line arguments for this log file
+    args=("$@")
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            "-a")
+                after_date=$2
+                shift 2  # Move to the next option after shifting the value of -a
+                ;;
+            "-b")
+                before_date=$2
+                shift 2  # Move to the next option after shifting the value of -b
+                ;;
+            "-c")
+                currency_code=$2
+                shift 2  # Move to the next option after shifting the value of -c
+                ;;
+            "list")
+                shift  # Move to the next command
+                username=$1
+                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user' "$log_file"
+                ;;
+            "list-currency")
+                shift  # Move to the next command
+                username=$1
+                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && !seen[$3]++ && $1 == user {print $3}' "$log_file" | sort
+                ;;
+            "status")
+                shift  # Move to the next command
+                username=$1
+                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, currency[c] }' "$log_file" | sort
+                ;;
+            "profit")
+                shift  # Move to the next command
+                username=$1
+                awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || before=="" || after=="" || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, (currency[c] > 0) ? currency[c] * 1.2 : currency[c] }' "$log_file" | sort
+                ;;
+        esac
+        shift
+    done
+
+    # Restore original command line arguments for the next log file
+    set -- "${args[@]}"
+done
