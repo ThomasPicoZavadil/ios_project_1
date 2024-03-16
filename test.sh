@@ -1,8 +1,17 @@
+#invalid date formát
+#předělat help
+#zakázat 2 usery
+#zakázat 2 commandy
+#dodělat xtf_profit
+#zakázat xtf_profit > 100
+#zakázat 2 argumenty pro datum stejného typu
+#kontrola logů
+
 export POSIXLY_CORRECT=yes
 XTF_PROFIT=${XTF_PROFIT:=20}
 
-after_date="0"
-before_date="999999"
+after_date=""
+before_date=""
 username=""
 command="list"
 unknown=()
@@ -10,13 +19,13 @@ log_files=()
 
 filter() {
     if [[ $command == "list" ]]; then
-        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || code=="") && $1 == user' "$log_file"
+        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '(($2 < before || before=="") && ($2 > after || after=="") && ($3 == code || code=="")) && $1 == user' "$log_file"
     elif [[ $command == "list-currency" ]]; then
-        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || code=="") && $1 == user {print $3}' "$log_file" | sort | uniq
+        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '(($2 < before || before=="") && ($2 > after || after=="") && ($3 == code || code=="")) && $1 == user {print $3}' "$log_file" | sort | uniq
     elif [[ $command == "status" ]]; then
-        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, currency[c] }' "$log_file" | sort
+        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '(($2 < before || before=="") && ($2 > after || after=="") && ($3 == code || code=="")) && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, currency[c] }' "$log_file" | sort
     elif [[ $command == "profit" ]]; then
-        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '($2 < before && $2 > after && $3 == code || code=="") && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, (currency[c] > 0) ? currency[c] * 1.2 : currency[c] }' "$log_file" | sort
+        awk -F';' -v code="$currency_code" -v after="$after_date" -v before="$before_date" -v user="$username" '(($2 < before || before=="") && ($2 > after || after=="") && ($3 == code || code=="")) && $1 == user { currency[$3] += $4 } END { for (c in currency) printf "%s : %.4f\n", c, (currency[c] > 0) ? currency[c] * 1.2 : currency[c] }' "$log_file" | sort
     fi
 }
 
