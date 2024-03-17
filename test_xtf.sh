@@ -59,7 +59,7 @@ run_test() {
     done
     echo ""
 
-    local actual_output=$(./test.sh "${args[@]}")
+    local actual_output=$(./xtf "${args[@]}")
     
     if [[ "$actual_output" == "$expected_output" ]]; then
         echo -e "${GREEN} [OK] ${NORMAL}"
